@@ -1,5 +1,10 @@
 package com.hemant.electric_billing_api.auth;
 
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;  // <- this class is in jjwt-api (subpackage "security")
+
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
