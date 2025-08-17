@@ -71,12 +71,11 @@ public class JwtService {
             @Value("${app.jwt.secret:dev-insecure-secret-change-me}") String secret,
             @Value("${app.jwt.ttlSeconds:604800}") long ttlSeconds // 7 days
     ) {
-        // Allow plain text or base64-encoded secrets (prefix base64:...)
+        // Allow plain text or base64-encoded secrets (prefix "base64:")
         byte[] keyBytes = secret.startsWith("base64:")
                 ? Decoders.BASE64.decode(secret.substring(7))
                 : secret.getBytes(StandardCharsets.UTF_8);
 
-        // HS256 requires >= 256 bits (32 bytes)
         if (keyBytes.length < 32) {
             throw new IllegalArgumentException("app.jwt.secret must be at least 32 bytes (256 bits).");
         }
@@ -97,7 +96,9 @@ public class JwtService {
     }
 
     public Jws<Claims> parse(String token) {
-        return Jwts.parser().verifyWith(key).build().parseSignedClaims(token);
+        return Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token);
     }
 }
-ß
