@@ -1,11 +1,78 @@
+//package com.hemant.electric_billing_api.auth;
+//
+//import jakarta.validation.constraints.Email;
+//import jakarta.validation.constraints.NotBlank;
+//import org.springframework.http.ResponseEntity;
+//import org.springframework.security.crypto.password.PasswordEncoder;
+//import org.springframework.web.bind.annotation.*;
+//
+//import java.util.Map;
+//
+//@RestController
+//@RequestMapping("/api/auth")
+//public class AuthController {
+//
+//    private final UserRepository users;
+//    private final PasswordEncoder encoder;
+//    private final JwtService jwt;
+//
+//    public AuthController(UserRepository users, PasswordEncoder encoder, JwtService jwt) {
+//        this.users = users;
+//        this.encoder = encoder;
+//        this.jwt = jwt;
+//    }
+//
+//    public record RegisterReq(@Email String email,
+//                              @NotBlank String password,
+//                              String firstName,
+//                              String lastName,
+//                              String phone,
+//                              String username) {}
+//
+//    public record LoginReq(@Email String email, @NotBlank String password) {}
+//
+//    @PostMapping("/register")
+//    public ResponseEntity<?> register(@RequestBody RegisterReq req) {
+//        if (users.existsByEmail(req.email())) {
+//            return ResponseEntity.status(409).body(Map.of("error", "Email already exists"));
+//        }
+//        var u = User.builder()
+//                .email(req.email().toLowerCase())
+//                .username(req.username())
+//                .firstName(req.firstName())
+//                .lastName(req.lastName())
+//                .phone(req.phone())
+//                .passwordHash(encoder.encode(req.password()))
+//                .build();
+//        users.save(u);
+//        String token = jwt.issue(u.getId(), u.getEmail());
+//        return ResponseEntity.ok(Map.of("token", token));
+//    }
+//
+//    @PostMapping("/login")
+//    public ResponseEntity<?> login(@RequestBody LoginReq req) {
+//        var u = users.findByEmail(req.email().toLowerCase())
+//                .orElse(null);
+//        if (u == null || !encoder.matches(req.password(), u.getPasswordHash())) {
+//            return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
+//        }
+//        String token = jwt.issue(u.getId(), u.getEmail());
+//        return ResponseEntity.ok(Map.of("token", token));
+//    }
+//}
+
+
 package com.hemant.electric_billing_api.auth;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
+import com.hemant.electric_billing_api.auth.JwtService;
+import com.hemant.electric_billing_api.user.User;
+import com.hemant.electric_billing_api.user.UserRepository;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URI;
 import java.util.Map;
 
 @RestController
@@ -22,41 +89,27 @@ public class AuthController {
         this.jwt = jwt;
     }
 
-    public record RegisterReq(@Email String email,
-                              @NotBlank String password,
-                              String firstName,
-                              String lastName,
-                              String phone,
-                              String username) {}
-
-    public record LoginReq(@Email String email, @NotBlank String password) {}
+    public record RegisterReq(String email, String password) {}
+    public record LoginReq(String email, String password) {}
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterReq req) {
-        if (users.existsByEmail(req.email())) {
-            return ResponseEntity.status(409).body(Map.of("error", "Email already exists"));
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterReq req) {
+        String email = req.email().toLowerCase();
+        if (users.existsByEmail(email)) {
+            return ResponseEntity.status(409).build();
         }
-        var u = User.builder()
-                .email(req.email().toLowerCase())
-                .username(req.username())
-                .firstName(req.firstName())
-                .lastName(req.lastName())
-                .phone(req.phone())
-                .passwordHash(encoder.encode(req.password()))
-                .build();
+        User u = new User(email, encoder.encode(req.password()));
         users.save(u);
-        String token = jwt.issue(u.getId(), u.getEmail());
-        return ResponseEntity.ok(Map.of("token", token));
+        return ResponseEntity.created(URI.create("/api/auth/register")).build();
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginReq req) {
-        var u = users.findByEmail(req.email().toLowerCase())
-                .orElse(null);
-        if (u == null || !encoder.matches(req.password(), u.getPasswordHash())) {
-            return ResponseEntity.status(401).body(Map.of("error", "Invalid credentials"));
-        }
-        String token = jwt.issue(u.getId(), u.getEmail());
-        return ResponseEntity.ok(Map.of("token", token));
+    public ResponseEntity<?> login(@Valid @RequestBody LoginReq req) {
+        return users.findByEmail(req.email().toLowerCase())
+                .filter(u -> encoder.matches(req.password(), u.getPasswordHash()))
+                .<ResponseEntity<?>>map(u -> ResponseEntity.ok(
+                        Map.of("token", jwt.issue(u.getId(), u.getEmail()))
+                ))
+                .orElseGet(() -> ResponseEntity.status(403).build());
     }
 }
