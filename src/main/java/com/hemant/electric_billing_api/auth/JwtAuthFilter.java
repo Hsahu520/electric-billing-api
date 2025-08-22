@@ -1,8 +1,10 @@
 package com.hemant.electric_billing_api.auth;
 
 import io.jsonwebtoken.Claims;
-import jakarta.servlet.*;
-import jakarta.servlet.http.*;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -24,7 +26,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
+    protected void doFilterInternal(HttpServletRequest req,
+                                    HttpServletResponse res,
+                                    FilterChain chain)
             throws ServletException, IOException {
 
         String auth = req.getHeader("Authorization");
@@ -32,12 +36,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             try {
                 var jws = jwt.parse(auth.substring(7));
                 Claims c = jws.getPayload();
-                var principal = new AuthUser(UUID.fromString(c.get("uid", String.class)), c.getSubject());
-                var authToken = new UsernamePasswordAuthenticationToken(principal, null, List.of());
+                var principal =
+                        new AuthUser(UUID.fromString(c.get("uid", String.class)), c.getSubject());
+                var authToken =
+                        new UsernamePasswordAuthenticationToken(principal, null, List.of());
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             } catch (Exception ignored) { }
         }
         chain.doFilter(req, res);
     }
-}
 
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String p = request.getServletPath();
+        return p.startsWith("/api/auth/") || p.equals("/api/health");
+    }
+}
